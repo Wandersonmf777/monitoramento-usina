@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoramento Bate-Volta</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f4f4f4; padding: 20px; }
+        .card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .status { font-size: 1.5rem; font-weight: bold; margin: 20px 0; color: #007bff; }
+        .coordenadas { font-size: 0.8rem; color: #666; }
+        button { padding: 15px 30px; font-size: 1rem; border: none; border-radius: 5px; background: #28a745; color: white; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h1>Ciclo de Operação</h1>
+        <p>Status Atual:</p>
+        <div id="status" class="status">Aguardando GPS...</div>
+        <p id="local" style="font-weight: bold;"></p>
+        <div class="coordenadas" id="coords">Lat: -- | Lon: --</div>
+        <br>
+        <button onclick="iniciarMonitoramento()">Iniciar Jornada</button>
+    </div>
+
+    <script>
+        // Defina aqui as coordenadas aproximadas da sua usina (Latitude e Longitude)
+        const LOCAIS = {
+            PATIO: { lat: -21.0000, lon: -48.0000, nome: "Pátio de Reboques" },
+            HILO1: { lat: -21.0010, lon: -48.0010, nome: "Hilo 01" },
+            HILO2: { lat: -21.0020, lon: -48.0020, nome: "Hilo 02" },
+            HILO3: { lat: -21.0030, lon: -48.0030, nome: "Hilo 03" }
+        };
+
+        const RAIO_METROS = 50; // Distância para considerar que chegou ao local
+
+        function calcularDistancia(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Raio da Terra em metros
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180;
+            const Δλ = (lon2-lon1) * Math.PI/180;
+
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            return R * c; 
+        }
+
+        function atualizarStatus(pos) {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            document.getElementById('coords').innerText = `Lat: ${lat.toFixed(5)} | Lon: ${lon.toFixed(5)}`;
+
+            let localAtual = "Em Deslocamento";
+            let statusLogistico = "Em Trânsito";
+
+            for (let chave in LOCAIS) {
+                let d = calcularDistancia(lat, lon, LOCAIS[chave].lat, LOCAIS[chave].lon);
+                if (d <= RAIO_METROS) {
+                    localAtual = LOCAIS[chave].nome;
+                    statusLogistico = (chave === 'PATIO') ? "Engatando/Desengatando" : "Aguardando Descarregamento";
+                    break;
+                }
+            }
+
+            document.getElementById('local').innerText = localAtual;
+            document.getElementById('status').innerText = statusLogistico;
+            
+            // Aqui você poderia enviar esses dados para um banco de dados (Firebase/Sheets)
+            console.log(`Log: ${localAtual} - ${new Date().toLocaleTimeString()}`);
+        }
+
+        function iniciarMonitoramento() {
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(atualizarStatus, (err) => {
+                    alert("Erro ao acessar GPS. Verifique as permissões.");
+                }, { enableHighAccuracy: true });
+            } else {
+                alert("GPS não suportado neste aparelho.");
+            }
+        }
+    </script>
+</body>
+</html>
